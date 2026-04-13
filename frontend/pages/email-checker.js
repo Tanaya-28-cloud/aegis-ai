@@ -32,7 +32,6 @@ export default function EmailChecker() {
         setLoading(true)
         setResult(null)
 
-        // MOCK DATA — replaced with real API call in Phase 6
         await new Promise(resolve => setTimeout(resolve, 1500))
 
         setResult({
@@ -58,11 +57,8 @@ export default function EmailChecker() {
             <p className="text-gray-400 mb-8">Detect phishing and fake emails instantly</p>
 
             <div className="max-w-2xl bg-gray-900 rounded-xl p-6 border border-gray-800">
-
                 <div className="mb-4">
-                    <label className="block text-sm text-gray-400 mb-1">
-                        Sender Email Address
-                    </label>
+                    <label className="block text-sm text-gray-400 mb-1">Sender Email Address</label>
                     <input
                         type="email"
                         value={sender}
@@ -74,9 +70,7 @@ export default function EmailChecker() {
                 </div>
 
                 <div className="mb-4">
-                    <label className="block text-sm text-gray-400 mb-1">
-                        Email Content
-                    </label>
+                    <label className="block text-sm text-gray-400 mb-1">Email Content</label>
                     <textarea
                         rows={6}
                         value={content}
@@ -87,9 +81,7 @@ export default function EmailChecker() {
                     />
                 </div>
 
-                {error && (
-                    <p className="text-red-400 text-sm mb-4">⚠ {error}</p>
-                )}
+                {error && <p className="text-red-400 text-sm mb-4">⚠ {error}</p>}
 
                 <button
                     onClick={handleSubmit}

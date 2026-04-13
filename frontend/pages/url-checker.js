@@ -24,7 +24,6 @@ export default function UrlChecker() {
         setLoading(true)
         setResult(null)
 
-        // MOCK DATA — replaced with real API call in Phase 6
         await new Promise(resolve => setTimeout(resolve, 1500))
 
         setResult({
@@ -47,7 +46,6 @@ export default function UrlChecker() {
             <p className="text-gray-400 mb-8">Check if a website is safe before you visit it</p>
 
             <div className="max-w-2xl bg-gray-900 rounded-xl p-6 border border-gray-800">
-
                 <div className="mb-4">
                     <label className="block text-sm text-gray-400 mb-1">Enter URL</label>
                     <input
@@ -60,9 +58,7 @@ export default function UrlChecker() {
                     />
                 </div>
 
-                {error && (
-                    <p className="text-red-400 text-sm mb-4">⚠ {error}</p>
-                )}
+                {error && <p className="text-red-400 text-sm mb-4">⚠ {error}</p>}
 
                 <button
                     onClick={handleSubmit}
