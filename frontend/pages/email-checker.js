@@ -1,14 +1,34 @@
 import { useState } from "react"
 import ResultCard from "@/components/ResultCard"
+import LoadingSkeleton from "@/components/LoadingSkeleton"
 
 export default function EmailChecker() {
     const [sender, setSender] = useState("")
     const [content, setContent] = useState("")
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState(null)
+    const [error, setError] = useState("")
 
     async function handleSubmit() {
-        if (!sender || !content) return
+        if (!sender && !content) {
+            setError("Please enter both the sender email and email content.")
+            return
+        }
+        if (!sender) {
+            setError("Please enter the sender email address.")
+            return
+        }
+        if (!content) {
+            setError("Please paste the email content.")
+            return
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(sender)) {
+            setError("Please enter a valid email address format.")
+            return
+        }
+
+        setError("")
         setLoading(true)
         setResult(null)
 
@@ -42,22 +62,26 @@ export default function EmailChecker() {
                     <input
                         type="email"
                         value={sender}
-                        onChange={(e) => setSender(e.target.value)}
+                        onChange={(e) => { setSender(e.target.value); setError("") }}
                         placeholder="e.g. support@paypa1.com"
-                        className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+                        className={`w-full bg-gray-800 text-white border rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 ${error && !sender ? "border-red-500" : "border-gray-700"
+                            }`}
                     />
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-4">
                     <label className="block text-sm text-gray-400 mb-1">Email Content</label>
                     <textarea
                         rows={6}
                         value={content}
-                        onChange={(e) => setContent(e.target.value)}
+                        onChange={(e) => { setContent(e.target.value); setError("") }}
                         placeholder="Paste the email body here..."
-                        className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500"
+                        className={`w-full bg-gray-800 text-white border rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 ${error && !content ? "border-red-500" : "border-gray-700"
+                            }`}
                     />
                 </div>
+
+                {error && <p className="text-red-400 text-sm mb-4">⚠ {error}</p>}
 
                 <button
                     onClick={handleSubmit}
@@ -68,7 +92,8 @@ export default function EmailChecker() {
                 </button>
             </div>
 
-            {result && <ResultCard result={result} type="email" />}
+            {loading && <LoadingSkeleton />}
+            {result && !loading && <ResultCard result={result} type="email" />}
         </main>
     )
 }
