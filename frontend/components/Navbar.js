@@ -20,8 +20,8 @@ export default function Navbar() {
                 <Link
                     href="/email-checker"
                     className={`text-sm transition ${isActive("/email-checker")
-                            ? "text-teal-400 font-semibold"
-                            : "text-gray-400 hover:text-white"
+                        ? "text-teal-400 font-semibold"
+                        : "text-gray-400 hover:text-white"
                         }`}
                 >
                     Email Checker
@@ -30,8 +30,8 @@ export default function Navbar() {
                 <Link
                     href="/url-checker"
                     className={`text-sm transition ${isActive("/url-checker")
-                            ? "text-teal-400 font-semibold"
-                            : "text-gray-400 hover:text-white"
+                        ? "text-teal-400 font-semibold"
+                        : "text-gray-400 hover:text-white"
                         }`}
                 >
                     URL Checker
