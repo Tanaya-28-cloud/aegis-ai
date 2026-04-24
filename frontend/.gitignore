@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large data files
+ml-service/data/
+ml-service/models/email_classifier/model.safetensors
