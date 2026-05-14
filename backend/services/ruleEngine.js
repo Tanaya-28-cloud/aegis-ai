@@ -1,205 +1,248 @@
-const crypto = require('crypto');
+// ruleEngine.js
+// Layer 1 — Instant rule-based URL safety checks
+// No API key needed. Runs in milliseconds.
 
-// ─── URL CHECKS ─────────────────────────────────────────────────────────────
+const { URL } = require("url")
 
-// Known legitimate brands for typosquatting detection
-const KNOWN_BRANDS = [
-  'google', 'gmail', 'youtube', 'facebook', 'instagram', 'twitter',
-  'paypal', 'amazon', 'apple', 'microsoft', 'netflix', 'linkedin',
-  'dropbox', 'github', 'whatsapp', 'telegram', 'outlook', 'yahoo',
-  'ebay', 'walmart', 'chase', 'wellsfargo', 'bankofamerica', 'citibank'
-];
+// ── Data ──────────────────────────────────────────────────────────────────
 
-// Suspicious URL keywords often used in phishing paths
-const SUSPICIOUS_URL_KEYWORDS = [
-  'login', 'verify', 'secure', 'account', 'update', 'confirm',
-  'banking', 'suspended', 'urgent', 'validate', 'password', 'signin',
-  'webscr', 'cmd=', 'authenticate', 'credential'
-];
+const BRAND_NAMES = [
+  "paypal", "amazon", "google", "microsoft", "apple", "netflix",
+  "facebook", "instagram", "twitter", "linkedin", "dropbox",
+  "whatsapp", "youtube", "gmail", "outlook", "yahoo", "ebay",
+  "bankofamerica", "chase", "wellsfargo", "citibank", "hdfc",
+  "icici", "sbi", "steam", "roblox", "coinbase", "binance"
+]
 
-// Urgency/phishing keywords for email body analysis
-const URGENCY_WORDS = [
-  'immediately', 'urgent', 'suspended', 'verify now', 'account locked',
-  'click here', 'limited time', 'act now', 'expires today', 'final notice',
-  'security alert', 'unauthorized access', 'confirm your identity',
-  'unusual activity', 'your account will be closed'
-];
+const SUSPICIOUS_PATH_KEYWORDS = [
+  "login", "signin", "verify", "secure", "account", "update",
+  "confirm", "password", "credential", "wallet", "suspended",
+  "banking", "recover", "unlock", "validate", "authenticate"
+]
 
-// Shannon entropy — measures randomness in a string
-// High entropy = lots of random characters = suspicious (e.g. base64 encoded payloads)
-const calculateEntropy = (str) => {
-  const freq = {};
-  for (const char of str) {
-    freq[char] = (freq[char] || 0) + 1;
-  }
-  return Object.values(freq).reduce((entropy, count) => {
-    const p = count / str.length;
-    return entropy - p * Math.log2(p);
-  }, 0);
-};
+const HIGH_RISK_TLDS = [
+  ".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top",
+  ".click", ".link", ".work", ".party", ".loan", ".download"
+]
 
-// Levenshtein distance — measures how similar two strings are
-// Used to detect near-matches like "paypa1" vs "paypal"
-const levenshtein = (a, b) => {
-  const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
-  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      matrix[i][j] = b[i - 1] === a[j - 1]
-        ? matrix[i - 1][j - 1]
-        : Math.min(matrix[i - 1][j - 1], matrix[i - 1][j], matrix[i][j - 1]) + 1;
+// Leet speak character substitutions phishers use
+// e.g. paypa1.com instead of paypal.com
+const LEET_MAP = {
+  "0": "o", "1": "l", "3": "e",
+  "4": "a", "5": "s", "6": "g", "@": "a"
+}
+
+// ── Individual check functions ────────────────────────────────────────────
+
+function checkSSL(parsedUrl) {
+  if (parsedUrl.protocol !== "https:") {
+    return {
+      triggered: true,
+      reason: "No SSL certificate — connection is not encrypted (uses HTTP)",
+      score: 25
     }
   }
-  return matrix[b.length][a.length];
-};
+  return { triggered: false, score: 0 }
+}
 
-const checkURL = (url) => {
-  const reasons = [];
-  let riskScore = 0;
+function checkTyposquatting(hostname) {
+  const issues = []
 
-  let parsedURL;
+  for (const brand of BRAND_NAMES) {
+    // Skip if hostname IS the brand (e.g. paypal.com is fine)
+    if (hostname === brand + ".com" || hostname === "www." + brand + ".com") {
+      continue
+    }
+
+    // Check for leet-speak substitution: paypa1.com → paypal.com
+    let normalised = hostname
+    for (const [num, letter] of Object.entries(LEET_MAP)) {
+      normalised = normalised.split(num).join(letter)
+    }
+    if (normalised.includes(brand) && hostname !== normalised) {
+      issues.push({
+        reason: `Domain impersonates "${brand}" using character substitution (e.g. paypa1 → paypal)`,
+        score: 50
+      })
+      continue
+    }
+
+    // Check for brand in subdomain: paypal.evil-site.com
+    const parts = hostname.split(".")
+    const subdomain = parts.slice(0, -2).join(".")
+    if (subdomain.includes(brand)) {
+      issues.push({
+        reason: `Brand name "${brand}" used in subdomain to appear legitimate`,
+        score: 45
+      })
+      continue
+    }
+
+    // Check for brand + extra word in domain: paypal-secure.com
+    const domainWithoutTld = parts.slice(-2, -1)[0] || ""
+    if (
+      domainWithoutTld.includes(brand) &&
+      domainWithoutTld !== brand
+    ) {
+      issues.push({
+        reason: `Domain contains brand name "${brand}" with extra words — possible spoofing`,
+        score: 35
+      })
+    }
+  }
+
+  return issues
+}
+
+function checkSuspiciousPatterns(url, hostname, pathname) {
+  const issues = []
+
+  // Raw IP address as hostname
+  const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/
+  if (ipRegex.test(hostname)) {
+    issues.push({
+      reason: "URL uses a raw IP address instead of a domain name",
+      score: 40
+    })
+  }
+
+  // Excessive subdomains: login.verify.secure.evil.com
+  const subdomainCount = hostname.split(".").length - 2
+  if (subdomainCount > 3) {
+    issues.push({
+      reason: `Suspicious subdomain depth (${subdomainCount} levels) — common in phishing URLs`,
+      score: 20
+    })
+  }
+
+  // Very long URL — obfuscation tactic
+  if (url.length > 150) {
+    issues.push({
+      reason: `Unusually long URL (${url.length} characters) — may be hiding true destination`,
+      score: 15
+    })
+  }
+
+  // Suspicious words in path
+  for (const keyword of SUSPICIOUS_PATH_KEYWORDS) {
+    if (pathname.toLowerCase().includes(keyword)) {
+      issues.push({
+        reason: `Suspicious keyword "${keyword}" found in URL path`,
+        score: 15
+      })
+      break // one path keyword warning is enough
+    }
+  }
+
+  // High-risk TLD
+  for (const tld of HIGH_RISK_TLDS) {
+    if (hostname.endsWith(tld)) {
+      issues.push({
+        reason: `Domain uses high-risk TLD "${tld}" frequently abused for phishing`,
+        score: 25
+      })
+      break
+    }
+  }
+
+  // URL inside URL (redirect attack)
+  const httpCount = (url.match(/https?:\/\//g) || []).length
+  if (httpCount > 1) {
+    issues.push({
+      reason: "URL contains an embedded redirect to another URL",
+      score: 40
+    })
+  }
+
+  // Excessive percent-encoding (obfuscation)
+  const encodedCount = (url.match(/%[0-9a-fA-F]{2}/g) || []).length
+  if (encodedCount > 5) {
+    issues.push({
+      reason: `Heavy URL encoding detected (${encodedCount} encoded characters) — possible obfuscation`,
+      score: 20
+    })
+  }
+
+  // @ symbol in URL (tricks browser into ignoring everything before @)
+  if (url.includes("@")) {
+    issues.push({
+      reason: 'URL contains "@" symbol — can be used to disguise true destination',
+      score: 35
+    })
+  }
+
+  return issues
+}
+
+// ── Main export ───────────────────────────────────────────────────────────
+
+function runRuleChecks(url) {
+  let totalScore = 0
+  const allReasons = []
+
+  // Try to parse the URL
+  let parsed
   try {
-    parsedURL = new URL(url);
+    parsed = new URL(url)
   } catch {
-    return { verdict: 'UNSAFE', confidence: 0.99, reasons: ['Invalid or malformed URL'], riskScore: 1 };
-  }
-
-  const hostname = parsedURL.hostname.toLowerCase();
-  const fullUrl = url.toLowerCase();
-
-  // Check 1: No SSL (HTTP instead of HTTPS)
-  if (parsedURL.protocol === 'http:') {
-    reasons.push('No SSL certificate — connection is unencrypted (HTTP)');
-    riskScore += 0.25;
-  }
-
-  // Check 2: IP address used instead of domain name
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) {
-    reasons.push('IP address used instead of domain name — common in phishing');
-    riskScore += 0.4;
-  }
-
-  // Check 3: High URL entropy (random-looking URL)
-  const entropy = calculateEntropy(url);
-  if (entropy > 4.5) {
-    reasons.push(`High URL entropy (${entropy.toFixed(2)}) — URL contains unusual character patterns`);
-    riskScore += 0.2;
-  }
-
-  // Check 4: Suspicious keywords in URL path or hostname
-  const matchedKeywords = SUSPICIOUS_URL_KEYWORDS.filter(k => fullUrl.includes(k));
-  if (matchedKeywords.length > 0) {
-    reasons.push(`Suspicious keywords detected in URL: ${matchedKeywords.join(', ')}`);
-    riskScore += 0.15 * Math.min(matchedKeywords.length, 3);
-  }
-
-  // Check 5: Too many subdomains (e.g. login.verify.secure.paypal.com)
-  const parts = hostname.split('.');
-  if (parts.length > 4) {
-    reasons.push(`Excessive subdomains (${parts.length - 2}) — common phishing technique`);
-    riskScore += 0.3;
-  }
-
-  // Check 6: Typosquatting detection
-  const domainWithoutTLD = parts.slice(0, -1).join('.');
-  for (const brand of KNOWN_BRANDS) {
-    const distance = levenshtein(domainWithoutTLD, brand);
-    if (distance > 0 && distance <= 2 && domainWithoutTLD !== brand) {
-      reasons.push(`Domain closely mimics "${brand}" — possible typosquatting (${domainWithoutTLD})`);
-      riskScore += 0.5;
-      break;
+    return {
+      verdict: "UNSAFE",
+      confidence: 0.95,
+      reasons: ["Invalid or malformed URL — cannot be parsed"],
+      safe_to_preview: false,
+      layer: "rule-engine",
+      rule_triggered: true
     }
   }
 
-  // Check 7: Very long URL (often used to obscure destination)
-  if (url.length > 200) {
-    reasons.push(`Unusually long URL (${url.length} characters)`);
-    riskScore += 0.1;
+  const hostname = parsed.hostname.toLowerCase()
+  const pathname = parsed.pathname.toLowerCase()
+
+  // Run all checks
+  const sslCheck = checkSSL(parsed)
+  if (sslCheck.triggered) {
+    allReasons.push(sslCheck.reason)
+    totalScore += sslCheck.score
   }
 
-  // Check 8: URL contains @ symbol (tricks users — everything before @ is ignored)
-  if (url.includes('@')) {
-    reasons.push('URL contains @ symbol — this is used to disguise the real destination');
-    riskScore += 0.45;
+  const typoIssues = checkTyposquatting(hostname)
+  for (const issue of typoIssues) {
+    allReasons.push(issue.reason)
+    totalScore += issue.score
   }
 
-  const confidence = Math.min(riskScore, 1.0);
-  const verdict = confidence >= 0.5 ? 'UNSAFE' : 'SAFE';
-
-  return { verdict, confidence: parseFloat(confidence.toFixed(2)), reasons, riskScore };
-};
-
-// ─── EMAIL CHECKS ────────────────────────────────────────────────────────────
-
-const checkEmail = (sender, content) => {
-  const reasons = [];
-  let riskScore = 0;
-
-  const senderLower = (sender || '').toLowerCase();
-  const contentLower = (content || '').toLowerCase();
-
-  // Extract domain from sender email address
-  const emailMatch = senderLower.match(/@([a-z0-9.-]+)/);
-  const senderDomain = emailMatch ? emailMatch[1] : null;
-
-  // Check 1: Suspicious sender domain TLDs (.xyz, .top, .info, .tk, etc.)
-  const suspiciousTLDs = ['.xyz', '.top', '.info', '.tk', '.ml', '.ga', '.cf', '.pw', '.zip'];
-  if (senderDomain && suspiciousTLDs.some(tld => senderDomain.endsWith(tld))) {
-    reasons.push(`Suspicious sender domain TLD (${senderDomain})`);
-    riskScore += 0.3;
+  const patternIssues = checkSuspiciousPatterns(url, hostname, pathname)
+  for (const issue of patternIssues) {
+    allReasons.push(issue.reason)
+    totalScore += issue.score
   }
 
-  // Check 2: Sender domain typosquatting
-  if (senderDomain) {
-    const domainBase = senderDomain.split('.')[0];
-    for (const brand of KNOWN_BRANDS) {
-      const distance = levenshtein(domainBase, brand);
-      if (distance > 0 && distance <= 2 && domainBase !== brand) {
-        reasons.push(`Sender domain mimics "${brand}" (${senderDomain}) — possible spoofing`);
-        riskScore += 0.45;
-        break;
-      }
+  // Score → verdict
+  // Score 0–29   = low risk  → pass to Layer 2
+  // Score 30–49  = medium    → pass to Layer 2 with reasons
+  // Score 50+    = high risk → return UNSAFE immediately
+
+  if (totalScore >= 50) {
+    const confidence = Math.min(0.60 + totalScore / 200, 0.98)
+    return {
+      verdict: "UNSAFE",
+      confidence: parseFloat(confidence.toFixed(2)),
+      reasons: allReasons,
+      safe_to_preview: false,
+      layer: "rule-engine",
+      rule_triggered: true
     }
   }
 
-  // Check 3: Urgency language in email body
-  const matchedUrgency = URGENCY_WORDS.filter(w => contentLower.includes(w));
-  if (matchedUrgency.length >= 2) {
-    reasons.push(`High urgency language detected: "${matchedUrgency.slice(0, 2).join('", "')}"`);
-    riskScore += 0.2 * Math.min(matchedUrgency.length, 3);
+  // Pass to next layer with any partial reasons found
+  return {
+    verdict: "UNCERTAIN",
+    confidence: parseFloat((totalScore / 100).toFixed(2)),
+    reasons: allReasons, // carry forward to merge with AI reasons
+    safe_to_preview: false,
+    layer: "rule-engine",
+    rule_triggered: false
   }
+}
 
-  // Check 4: Suspicious URLs embedded in email body
-  const urlRegex = /https?:\/\/[^\s"'<>]+/gi;
-  const embeddedURLs = content.match(urlRegex) || [];
-  const suspiciousLinks = embeddedURLs.filter(link => {
-    const result = checkURL(link);
-    return result.verdict === 'UNSAFE';
-  });
-  if (suspiciousLinks.length > 0) {
-    reasons.push(`Email contains ${suspiciousLinks.length} suspicious link(s)`);
-    riskScore += 0.4;
-  }
-
-  // Check 5: Generic greeting (phishing emails rarely use your real name)
-  const genericGreetings = ['dear customer', 'dear user', 'dear account holder', 'dear valued member'];
-  if (genericGreetings.some(g => contentLower.includes(g))) {
-    reasons.push('Generic greeting used — legitimate organisations usually address you by name');
-    riskScore += 0.15;
-  }
-
-  // Check 6: Requests for sensitive info
-  const sensitiveRequests = ['social security', 'ssn', 'credit card', 'pin number', 'password', 'bank account'];
-  const matchedSensitive = sensitiveRequests.filter(s => contentLower.includes(s));
-  if (matchedSensitive.length > 0) {
-    reasons.push('Email requests sensitive personal information — a major red flag');
-    riskScore += 0.35;
-  }
-
-  const confidence = Math.min(riskScore, 1.0);
-  const verdict = confidence >= 0.5 ? 'FAKE' : 'SAFE';
-
-  return { verdict, confidence: parseFloat(confidence.toFixed(2)), reasons, riskScore };
-};
-
-module.exports = { checkURL, checkEmail, calculateEntropy };
+module.exports = { runRuleChecks }
