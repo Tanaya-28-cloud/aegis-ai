@@ -1,37 +1,17 @@
-const { Sequelize } = require('sequelize');
-const Redis = require('ioredis');
+const { Sequelize } = require("sequelize")
 
-// PostgreSQL connection via Sequelize
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
-  dialect: 'postgres',
-  logging: false, // set to console.log if you want to see SQL queries
-  dialectOptions: {
-    ssl: process.env.NODE_ENV === 'production'
-      ? { require: true, rejectUnauthorized: false }
-      : false
-  }
-});
+const sequelize = new Sequelize("sqlite::memory:", {
+  logging: false
+})
 
-// Redis connection via ioredis
-const redis = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: 3,
-  lazyConnect: true
-});
-
-redis.on('connect', () => console.log('✅ Redis connected'));
-redis.on('error', (err) => console.error('❌ Redis error:', err.message));
-
-// Test the PostgreSQL connection
-const connectDB = async () => {
+async function connectDB() {
   try {
-    await sequelize.authenticate();
-    console.log('✅ PostgreSQL connected');
-    await sequelize.sync({ alter: false }); // use { force: true } only in dev to reset tables
-    console.log('✅ Database synced');
+    await sequelize.authenticate()
+    await sequelize.sync({ force: false })
+    console.log("Database: running in local SQLite mode (no PostgreSQL needed)")
   } catch (err) {
-    console.error('❌ PostgreSQL connection failed:', err.message);
-    process.exit(1);
+    console.error("Database connection failed:", err.message)
   }
-};
+}
 
-module.exports = { sequelize, redis, connectDB };
+module.exports = { sequelize, connectDB }

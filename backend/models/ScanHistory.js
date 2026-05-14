@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../db/index');
+const { sequelize } = require('../db/index')
 const User = require('./User');
 
 const ScanHistory = sequelize.define('ScanHistory', {
