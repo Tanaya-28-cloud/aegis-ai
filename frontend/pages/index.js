@@ -122,6 +122,50 @@ export default function Home() {
         </div>
       </section>
 
-    </main>
+      {/* Extension download section */}
+      <section className="px-8 py-20 max-w-5xl mx-auto text-center">
+        <h2 className="text-2xl font-bold mb-4 text-gray-200">
+          Browse with protection turned on
+        </h2>
+        <p className="text-gray-400 mb-8 max-w-lg mx-auto">
+          The Aegis AI extension scans every page you visit automatically.
+          Unsafe sites are blocked before they load.
+        </p>
+
+        <div className="inline-flex flex-col items-center gap-3">
+          <a
+            href="/aegis-ai-extension.zip"
+            className="bg-teal-500 hover:bg-teal-400 text-gray-950 font-semibold px-8 py-3 rounded-lg transition flex items-center gap-2"
+          >
+            🛡 Download Chrome Extension
+          </a>
+          <p className="text-xs text-gray-600">
+            Chrome · Manifest V3 · Open source
+          </p>
+        </div>
+
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <p className="text-teal-400 font-semibold text-sm mb-1">Auto-scan</p>
+            <p className="text-gray-400 text-xs">
+              Every URL is checked against Aegis AI the moment you navigate to it
+            </p>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <p className="text-teal-400 font-semibold text-sm mb-1">Instant block</p>
+            <p className="text-gray-400 text-xs">
+              Phishing sites are intercepted before the page loads — not after
+            </p>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <p className="text-teal-400 font-semibold text-sm mb-1">Fail-safe</p>
+            <p className="text-gray-400 text-xs">
+              If the server is unreachable, you browse normally — never blocked
+            </p>
+          </div>
+        </div>
+      </section>
+
+    </main >
   )
 }
