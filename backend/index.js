@@ -9,6 +9,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/auth');
 const emailRoutes = require('./routes/email');
 const urlRoutes = require('./routes/url');
+const sandboxRoutes = require('./routes/sandbox')
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -33,6 +34,7 @@ app.use('/api/', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/check-email', emailRoutes);
 app.use('/api/check-url', urlRoutes);
+app.use('/api/sandbox-preview', sandboxRoutes)
 
 // Health check endpoint (useful for Railway + uptime monitoring)
 app.get('/health', (req, res) => {
