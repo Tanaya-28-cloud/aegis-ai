@@ -25,7 +25,27 @@ const DANGEROUS_ATTRS = [
 ]
 
 function sanitiseHTML(html, baseUrl) {
-    const $ = cheerio.load(html)
+    const $ = cheerio.load(html, { decodeEntities: false })
+
+    // ── Bug fix: ensure UTF-8 charset is declared so emoji/unicode
+    //   in our injected banner always renders correctly regardless
+    //   of the original page's charset declaration ─────────────────
+    // Remove any existing charset meta to avoid conflicts
+    $("meta[charset]").remove()
+    $("meta[http-equiv='Content-Type']").remove()
+    $("meta[http-equiv='content-type']").remove()
+
+    // Inject our own charset declaration at the top of <head>
+    if ($("head").length) {
+        $("head").prepend('<meta charset="utf-8">')
+    } else {
+        // No <head> — create one
+        if ($("html").length) {
+            $("html").prepend("<head><meta charset=\"utf-8\"></head>")
+        } else {
+            $.root().prepend("<head><meta charset=\"utf-8\"></head>")
+        }
+    }
 
     // Remove all dangerous tags completely
     DANGEROUS_TAGS.forEach(tag => $(tag).remove())
@@ -81,7 +101,7 @@ function sanitiseHTML(html, baseUrl) {
         // Fix relative CSS background images
         if (this.name === "style") {
             const css = el.html() || ""
-            el.html(css.replace(/url\(['"]?(?!http|data)([^'")]+)['"]?\)/g, (match, p1) => {
+            el.html(css.replace(/url\(['"']?(?!http|data)([^'"')]+)['"']?\)/g, (match, p1) => {
                 try {
                     return `url('${new URL(p1, baseUrl).href}')`
                 } catch {
@@ -91,7 +111,8 @@ function sanitiseHTML(html, baseUrl) {
         }
     })
 
-    // Add Aegis safety banner at the top
+    // ── Inject Aegis safety banner
+    // Use HTML entity for the shield emoji to avoid charset issues
     $("body").prepend(`
     <div style="
       position: sticky;
@@ -106,9 +127,10 @@ function sanitiseHTML(html, baseUrl) {
       display: flex;
       align-items: center;
       gap: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
     ">
-      🛡 <strong>Aegis Sandbox</strong>
-      <span style="color:#6b7280">—</span>
+      &#x1F6E1; <strong>Aegis Sandbox</strong>
+      <span style="color:#6b7280">&mdash;</span>
       <span style="color:#9ca3af">
         Scripts, forms and links have been disabled for your safety
       </span>
@@ -126,17 +148,25 @@ router.post("/", async (req, res) => {
     }
 
     // Basic URL validation
+    let parsedUrl
     try {
-        new URL(url)
+        parsedUrl = new URL(url)
     } catch {
         return res.status(400).json({ error: "Invalid URL format" })
+    }
+
+    // Only allow http and https — block file://, data:, javascript:, etc.
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return res.status(400).json({ error: "Only http and https URLs are supported" })
     }
 
     try {
         const response = await axios.get(url, {
             timeout: 8000,
             headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; AegisAI-Sandbox/1.0)"
+                "User-Agent": "Mozilla/5.0 (compatible; AegisAI-Sandbox/1.0)",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
             },
             maxContentLength: 2 * 1024 * 1024, // 2MB max
             responseType: "text"
@@ -152,9 +182,11 @@ router.post("/", async (req, res) => {
 
         const sanitised = sanitiseHTML(response.data, url)
 
+        // Return with explicit UTF-8 header so the JSON transport is clean
         return res.json({
             html: sanitised,
-            original_url: url
+            original_url: url,
+            content_type: contentType
         })
 
     } catch (err) {
@@ -166,6 +198,11 @@ router.post("/", async (req, res) => {
         if (err.response?.status === 403) {
             return res.status(403).json({
                 error: "This website blocks external access and cannot be previewed"
+            })
+        }
+        if (err.response?.status === 404) {
+            return res.status(404).json({
+                error: "Page not found — the URL returned a 404 error"
             })
         }
         return res.status(502).json({
