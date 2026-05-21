@@ -14,9 +14,18 @@ const TRUSTED_DOMAINS = [
     "reddit.com", "netflix.com", "yahoo.com", "bing.com",
     "outlook.com", "office.com", "live.com", "dropbox.com",
     "whatsapp.com", "zoom.us", "slack.com", "notion.so",
-    "vercel.app", "railway.app", "heroku.com", "netlify.app"
+    "vercel.app", "railway.app", "heroku.com", "netlify.app",
+    // Add these:
+    "openai.com", "anthropic.com", "huggingface.co", "kaggle.com",
+    "pytorch.org", "tensorflow.org", "arxiv.org", "medium.com",
+    "dev.to", "npmjs.com", "pypi.org", "docker.com",
+    "cloudflare.com", "aws.amazon.com", "azure.microsoft.com",
+    "cloud.google.com", "digitalocean.com", "stripe.com",
+    "shopify.com", "wordpress.com", "figma.com", "canva.com",
+    "trello.com", "jira.atlassian.com", "confluence.atlassian.com",
+    "hdfc.com", "hdfcbank.com", "icicibank.com", "sbi.co.in",
+    "axisbank.com", "kotak.com", "paytm.com", "phonepe.com"
 ]
-
 let hf = null
 
 function getClient() {

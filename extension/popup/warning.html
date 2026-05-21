@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Aegis AI — Unsafe Page Blocked</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #020b0b;
+            color: #e0fff5;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+            background-image:
+                linear-gradient(rgba(0, 255, 157, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 157, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .card {
+            max-width: 560px;
+            width: 100%;
+            background: rgba(4, 20, 20, 0.9);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(239, 68, 68, 0.1);
+        }
+
+        .shield {
+            font-size: 56px;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 99px;
+            padding: 4px 12px;
+            font-size: 10px;
+            color: #f87171;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #f87171;
+            margin-bottom: 8px;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .url-box {
+            background: #0a0a0a;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            word-break: break-all;
+            font-size: 11px;
+            color: #6b7280;
+            text-align: left;
+        }
+
+        .url-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+
+        .reasons {
+            background: rgba(127, 29, 29, 0.3);
+            border: 1px solid rgba(127, 29, 29, 0.5);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .reasons-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #f87171;
+            margin-bottom: 10px;
+        }
+
+        .reasons ul {
+            list-style: none;
+        }
+
+        .reasons li {
+            font-size: 12px;
+            color: #fca5a5;
+            padding: 3px 0 3px 14px;
+            position: relative;
+            line-height: 1.5;
+        }
+
+        .reasons li::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: #ef4444;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+        }
+
+        .btn-safe {
+            background: #00ff9d;
+            color: #020b0b;
+        }
+
+        .btn-safe:hover {
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.4);
+        }
+
+        .btn-danger {
+            background: transparent;
+            border: 1px solid #374151;
+            color: #6b7280;
+            font-size: 11px;
+        }
+
+        .btn-danger:hover {
+            border-color: #ef4444;
+            color: #f87171;
+        }
+
+        .powered {
+            margin-top: 20px;
+            font-size: 10px;
+            color: #1f2937;
+            letter-spacing: 0.05em;
+        }
+
+        .confidence-bar {
+            height: 3px;
+            background: #1f2937;
+            border-radius: 2px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f87171);
+            border-radius: 2px;
+            transition: width 0.8s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <span class="shield">🛡</span>
+
+        <div class="badge">
+            <div class="dot"></div>
+            Threat Detected
+        </div>
+
+        <h1>Unsafe Page Blocked</h1>
+        <p class="subtitle">
+            Aegis AI has intercepted a potentially dangerous website
+            before it could load on your device.
+        </p>
+
+        <div class="url-box">
+            <div class="url-label">Blocked URL</div>
+            <div id="blockedUrl">Loading...</div>
+        </div>
+
+        <div class="reasons">
+            <div class="reasons-title">// Why this was blocked</div>
+            <ul id="reasonsList">
+                <li>Analysing threat data...</li>
+            </ul>
+            <div class="confidence-bar">
+                <div class="confidence-fill" id="confidenceBar" style="width:0%"></div>
+            </div>
+            <div style="font-size:10px;color:#6b7280;margin-top:6px;text-align:right">
+                Threat confidence: <span id="confidenceText">—</span>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-safe" onclick="goBack()">
+                ← Take me somewhere safe
+            </button>
+            <button class="btn btn-danger" onclick="proceedAnyway()">
+                I understand the risk — proceed anyway
+            </button>
+        </div>
+
+        <p class="powered">AEGIS_AI · POWERED BY DISTILBERT · v1.0.0</p>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search)
+        const blockedUrl = params.get('url') || 'Unknown URL'
+        document.getElementById('blockedUrl').textContent = blockedUrl
+
+        chrome.storage.session.get(
+            ['aegis_blocked_url', 'aegis_reasons', 'aegis_confidence'],
+            (data) => {
+                const reasons = data.aegis_reasons || ['Detected as unsafe by Aegis AI']
+                const confidence = data.aegis_confidence || 0
+
+                const ul = document.getElementById('reasonsList')
+                ul.innerHTML = reasons.map(r => `<li>${r}</li>`).join('')
+
+                const pct = Math.round(confidence * 100)
+                document.getElementById('confidenceBar').style.width = pct + '%'
+                document.getElementById('confidenceText').textContent = pct + '%'
+            }
+        )
+
+        function goBack() {
+            chrome.tabs.getCurrent(tab => {
+                chrome.tabs.goBack(tab.id, () => {
+                    if (chrome.runtime.lastError) {
+                        chrome.tabs.update(tab.id, { url: 'chrome://newtab' })
+                    }
+                })
+            })
+        }
+
+        function proceedAnyway() {
+            chrome.runtime.sendMessage(
+                { type: 'ALLOW_ONCE', url: blockedUrl },
+                () => { window.location.href = blockedUrl }
+            )
+        }
+    </script>
+</body>
+
+</html>

@@ -4,7 +4,7 @@ Loads both trained models at startup and serves predictions.
 
 Run:
   cd ml-service
-  source venv/bin/activate
+  venv\Scripts\activate
   python serve.py
 
 Endpoints:
@@ -39,6 +39,7 @@ url_model = None
 url_scaler = None
 email_classifier = None
 
+
 def load_models():
     global url_model, url_scaler, email_classifier
 
@@ -62,13 +63,14 @@ def load_models():
                 'text-classification',
                 model=EMAIL_MODEL_DIR,
                 tokenizer=EMAIL_MODEL_DIR,
-                device=-1  # CPU — use 0 for GPU if available
+                device=-1  # CPU
             )
             logger.info("✅ Email classifier loaded")
         except Exception as e:
             logger.warning(f"⚠️  Email model load failed: {e}")
     else:
         logger.warning("⚠️  Email model not found — /predict/email will return fallback")
+
 
 # ─── ROUTES ──────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ def health():
         'email_model_loaded': email_classifier is not None
     })
 
+
 @app.route('/predict/url', methods=['POST'])
 def predict_url():
     data = request.get_json()
@@ -89,7 +92,6 @@ def predict_url():
         return jsonify({'error': 'url is required'}), 400
 
     if url_model is None or url_scaler is None:
-        # Model not loaded — return a safe default so backend can use rule engine
         return jsonify({
             'verdict': 'UNKNOWN',
             'confidence': 0.5,
@@ -107,8 +109,6 @@ def predict_url():
 
         verdict = 'UNSAFE' if phishing_prob >= 0.5 else 'SAFE'
         confidence = round(max(phishing_prob, safe_prob), 4)
-
-        # Build human-readable reasons from top features
         reasons = build_url_reasons(url, features, phishing_prob)
 
         return jsonify({
@@ -121,6 +121,7 @@ def predict_url():
     except Exception as e:
         logger.error(f"URL prediction error: {e}")
         return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
+
 
 @app.route('/predict/email', methods=['POST'])
 def predict_email():
@@ -140,34 +141,84 @@ def predict_email():
         }), 503
 
     try:
-        # DistilBERT has a 512 token limit — truncate long emails
+        # Combine sender + content for context
         combined_input = f"From: {sender}\n\n{content}"[:2000]
 
-        result = email_classifier(combined_input, truncation=True, max_length=512)[0]
+        result = email_classifier(
+            combined_input,
+            truncation=True,
+            max_length=512
+        )[0]
 
-        # Tanaya's model labels: LABEL_1 = phishing, LABEL_0 = safe
-        # (confirm label convention with Tanaya when she shares her model)
-        is_phishing = result['label'] in ('LABEL_1', 'PHISHING', 'FAKE')
-        confidence = round(float(result['score']), 4)
+        is_phishing_label = result['label'] in ('LABEL_1', 'PHISHING', 'FAKE')
+        raw_confidence = float(result['score'])
 
-        verdict = 'FAKE' if is_phishing else 'SAFE'
-
-        reasons = []
-        if is_phishing:
-            reasons.append(f'Email content classified as phishing by ML model (confidence: {confidence:.0%})')
+        # ── Confidence threshold logic ────────────────────────────────
+        # Only trust model when it's highly confident (>= 0.85)
+        # Below threshold → fall back to keyword rules
+        if is_phishing_label and raw_confidence >= 0.85:
+            verdict = 'FAKE'
+            confidence = round(raw_confidence, 4)
+        elif not is_phishing_label and raw_confidence >= 0.85:
+            verdict = 'SAFE'
+            confidence = round(raw_confidence, 4)
         else:
-            reasons.append(f'Email content appears legitimate (confidence: {confidence:.0%})')
+            # Low confidence — use keyword fallback
+            suspicious_words = [
+                "verify", "suspended", "click here", "confirm your",
+                "limited time", "act now", "login immediately",
+                "unusual activity", "security alert", "account locked",
+                "urgent", "winner", "prize", "free money"
+            ]
+            triggered = [w for w in suspicious_words if w in content.lower()]
+            verdict = 'FAKE' if len(triggered) >= 2 else 'SAFE'
+            confidence = round(raw_confidence, 4)
+
+        # ── Build reasons ─────────────────────────────────────────────
+        reasons = []
+        if verdict == 'FAKE':
+            reasons.append(
+                f'Email content classified as phishing by ML model '
+                f'(confidence: {confidence:.0%})'
+            )
+            # Add specific signals
+            sender_domain = sender.split("@")[-1].lower() if "@" in sender else ""
+            if any(c.isdigit() for c in sender_domain.split(".")[0]):
+                reasons.append(f'Sender domain contains suspicious numbers: {sender_domain}')
+
+            urgent_words = ["urgent", "verify", "suspended", "act now", "click here",
+                           "confirm", "limited time", "unusual activity"]
+            found = [w for w in urgent_words if w in content.lower()]
+            if found:
+                reasons.append(f'Urgency language detected: {", ".join(found[:3])}')
+        else:
+            reasons.append(
+                f'Email content appears legitimate '
+                f'(confidence: {confidence:.0%})'
+            )
+
+        # ── Precautions ───────────────────────────────────────────────
+        precautions = []
+        if verdict == 'FAKE':
+            precautions = [
+                "Do not click any links in this email",
+                "Do not download any attachments",
+                "Report as phishing to your email provider",
+                "Verify the sender through official channels"
+            ]
 
         return jsonify({
             'verdict': verdict,
             'confidence': confidence,
             'reasons': reasons,
+            'precautions': precautions,
             'model_available': True
         })
 
     except Exception as e:
         logger.error(f"Email prediction error: {e}")
         return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
+
 
 def build_url_reasons(url: str, features: list, phishing_prob: float) -> list:
     """Build human-readable explanation from feature values."""
@@ -197,6 +248,7 @@ def build_url_reasons(url: str, features: list, phishing_prob: float) -> list:
             reasons.append('No significant phishing indicators detected')
 
     return reasons
+
 
 # ─── START ───────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
