@@ -9,6 +9,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/auth');
 const emailRoutes = require('./routes/email');
 const urlRoutes = require('./routes/url');
+const sandboxRoutes = require('./routes/sandbox')
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,10 +17,13 @@ const PORT = process.env.PORT || 3001;
 // ─── SECURITY MIDDLEWARE ─────────────────────────────────────────────────────
 app.use(helmet()); // sets secure HTTP headers
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? 'https://aegis-ai.vercel.app'  // Tanaya's Vercel URL — update when she deploys
-    : 'http://localhost:3000',
-  credentials: true
+  origin: [
+    'http://localhost:3000',
+    'https://aegis-ai-sable.vercel.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // ─── BODY PARSING ────────────────────────────────────────────────────────────
@@ -33,6 +37,7 @@ app.use('/api/', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/check-email', emailRoutes);
 app.use('/api/check-url', urlRoutes);
+app.use('/api/sandbox-preview', sandboxRoutes)
 
 // Health check endpoint (useful for Railway + uptime monitoring)
 app.get('/health', (req, res) => {
