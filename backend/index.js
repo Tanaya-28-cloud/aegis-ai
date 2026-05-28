@@ -17,11 +17,10 @@ const PORT = process.env.PORT || 3001;
 // ─── SECURITY MIDDLEWARE ─────────────────────────────────────────────────────
 app.use(helmet()); // sets secure HTTP headers
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    callback(null, true); // Allow all origins for now
-  },
+  origin: [
+    'http://localhost:3000',
+    'https://aegis-ai-sable.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
