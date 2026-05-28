@@ -17,10 +17,14 @@ const PORT = process.env.PORT || 3001;
 // ─── SECURITY MIDDLEWARE ─────────────────────────────────────────────────────
 app.use(helmet()); // sets secure HTTP headers
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? 'https://aegis-ai.vercel.app'  // Tanaya's Vercel URL — update when she deploys
-    : 'http://localhost:3000',
-  credentials: true
+  origin: [
+    'http://localhost:3000',
+    'https://aegis-ai.vercel.app',
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // ─── BODY PARSING ────────────────────────────────────────────────────────────
